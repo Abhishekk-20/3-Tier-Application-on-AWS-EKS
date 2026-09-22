@@ -1,12 +1,25 @@
 # 3-Tier Application on AWS EKS
 
-Production-style 3-tier application deployed on **Amazon EKS** with a **React/Nginx frontend**, **Flask/Gunicorn backend**, **PostgreSQL**, **AWS ALB**, and **HTTPS**.
+A production-style 3-tier application deployed on Amazon EKS with a React frontend, Flask API backend, PostgreSQL database, AWS Application Load Balancer, and HTTPS.
 
-> Account-specific values are represented by placeholders. Never commit passwords, AWS keys, private keys, or live Kubernetes Secret values.
+> Note: Account-specific values are represented by placeholders. Never commit passwords, AWS keys, private keys, or live Kubernetes Secret values.
+
+## Overview
+
+This project demonstrates a full end-to-end deployment of a containerized application on AWS:
+
+- Frontend: React + Nginx
+- Backend: Flask + Gunicorn
+- Database: PostgreSQL
+- Orchestration: Amazon EKS / Kubernetes
+- Ingress: AWS ALB
+- TLS: AWS ACM
+- DNS: GoDaddy
+- Image Registry: Amazon ECR
 
 ## Architecture
 
-The application follows a standard public-facing 3-tier flow: traffic enters through a public DNS name, is terminated at the AWS Application Load Balancer, routed by the EKS ingress, and then served by the frontend and backend services. The backend communicates with PostgreSQL for persistent data storage.
+The application follows a standard public-facing 3-tier flow. Users access the site through a public DNS name, traffic is received by the AWS Application Load Balancer, routed through the EKS ingress, and then served by the frontend and backend services. The backend connects to PostgreSQL for persistent data storage.
 
 ```text
 User
@@ -20,7 +33,7 @@ GoDaddy DNS
  v
 AWS ALB (80/443)
  |  HTTPS termination via ACM
- |  HTTP redirect to HTTPS
+ |  HTTP redirected to HTTPS
  v
 EKS Ingress
  |
@@ -42,44 +55,44 @@ React + Nginx           Flask + Gunicorn
 |---|---|
 | Cloud | AWS |
 | Containers | Docker + Amazon ECR |
-| Orchestration | Amazon EKS / Kubernetes |
+| Orchestration | Kubernetes + Amazon EKS |
 | Frontend | React + Nginx |
 | Backend | Flask + Gunicorn |
 | Database | PostgreSQL |
 | Ingress | AWS Load Balancer Controller + ALB |
-| HTTPS | AWS Certificate Manager |
+| HTTPS | ACM |
 | DNS | GoDaddy |
 | Package Manager | Helm |
 
 ## Deployment Flow
 
 ```text
-Docker Build
+Build Docker images
     ↓
-Push Images to ECR
+Push images to Amazon ECR
     ↓
 Deploy PostgreSQL
     ↓
-Run DB Migration
+Run database migration
     ↓
-Deploy Backend
+Deploy backend service
     ↓
-Deploy Frontend
+Deploy frontend service
     ↓
-Install ALB Controller
+Install AWS Load Balancer Controller
     ↓
-Create Ingress
+Create Kubernetes Ingress
     ↓
-Configure ACM HTTPS
+Configure ACM HTTPS certificate
     ↓
-GoDaddy CNAME → ALB
+Point GoDaddy CNAME to ALB
     ↓
-https://www.smokebyte.space
+Access application at https://www.smokebyte.space
 ```
 
-## 1. ECR Images
+## 1. Push Container Images to ECR
 
-Login to ECR:
+Log in to ECR:
 
 ```bash
 aws ecr get-login-password --region ap-south-1 | \
@@ -87,14 +100,14 @@ docker login --username AWS --password-stdin \
 <AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com
 ```
 
-Build:
+Build the frontend and backend images:
 
 ```bash
 docker build -t 3-tier-frontend:v1 ./frontend
 docker build -t 3-tier-backend:v1 ./backend
 ```
 
-Tag and push:
+Tag and push them to ECR:
 
 ```bash
 docker tag 3-tier-frontend:v1 \
@@ -107,9 +120,9 @@ docker push <AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/3-tier-frontend:v1
 docker push <AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/3-tier-backend:v1
 ```
 
-## 2. Kubernetes Configuration
+## 2. Configure Kubernetes Resources
 
-Create namespace:
+Create the namespace:
 
 ```bash
 kubectl apply -f k8s/namespace.yaml
@@ -121,7 +134,7 @@ Generate a database password:
 DB_PASSWORD=$(openssl rand -hex 16)
 ```
 
-Create the Secret without storing the password in Git:
+Create the Kubernetes Secret without storing sensitive values in Git:
 
 ```bash
 kubectl create secret generic db-secrets \
@@ -133,41 +146,41 @@ kubectl create secret generic db-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-Apply application configuration and database:
+Apply the application config and database service manifests:
 
 ```bash
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/database-service.yaml
 ```
 
-Verify:
+Verify the resources:
 
 ```bash
 kubectl get pods -n 3-tier-app-eks
 kubectl get svc -n 3-tier-app-eks
 ```
 
-## 3. Database Migration
+## 3. Run Database Migration
 
 ```bash
 kubectl apply -f k8s/migration_job.yaml
 kubectl get jobs -n 3-tier-app-eks
 ```
 
-Expected:
+Expected output:
 
 ```text
 database-migration   Complete   1/1
 ```
 
-## 4. Deploy Backend and Frontend
+## 4. Deploy the Backend and Frontend
 
 ```bash
 kubectl apply -f k8s/backend.yaml
 kubectl apply -f k8s/frontend.yaml
 ```
 
-Verify:
+Verify the application services:
 
 ```bash
 kubectl get pods -n 3-tier-app-eks
@@ -182,16 +195,16 @@ backend       ClusterIP   8000
 postgres-db   ClusterIP   5432
 ```
 
-## 5. AWS Load Balancer Controller
+## 5. Install the AWS Load Balancer Controller
 
-The controller converts the Kubernetes Ingress into an AWS Application Load Balancer.
+The AWS Load Balancer Controller converts the Kubernetes Ingress into an AWS Application Load Balancer.
 
 ```bash
 helm repo add eks https://aws.github.io/eks-charts
 helm repo update
 ```
 
-Install:
+Install the controller:
 
 ```bash
 helm install aws-load-balancer-controller \
@@ -204,14 +217,14 @@ helm install aws-load-balancer-controller \
   --set serviceAccount.name=aws-load-balancer-controller
 ```
 
-Verify:
+Verify installation:
 
 ```bash
 kubectl get pods -n kube-system | grep aws-load-balancer
 kubectl get ingressclass
 ```
 
-## 6. Ingress and HTTPS
+## 6. Configure Ingress and HTTPS
 
 Important Ingress annotations:
 
@@ -224,21 +237,21 @@ annotations:
   alb.ingress.kubernetes.io/ssl-redirect: '443'
 ```
 
-Routing:
+Traffic routing:
 
 ```text
 /       → frontend:80
 /api    → backend:8000
 ```
 
-Apply:
+Apply the ingress:
 
 ```bash
 kubectl apply -f k8s/ingress.yaml
 kubectl get ingress -n 3-tier-app-eks
 ```
 
-## 7. ACM Certificate
+## 7. Request and Validate an ACM Certificate
 
 Request a certificate:
 
@@ -250,7 +263,7 @@ aws acm request-certificate \
   --region ap-south-1
 ```
 
-Add the ACM-provided validation CNAME to GoDaddy and wait until:
+Add the validation CNAME to GoDaddy, then wait until the certificate is issued:
 
 ```bash
 aws acm describe-certificate \
@@ -260,17 +273,17 @@ aws acm describe-certificate \
   --output text
 ```
 
-returns:
+Expected result:
 
 ```text
 ISSUED
 ```
 
-Keep the ACM validation CNAME in DNS for certificate renewal.
+Keep the ACM DNS validation record in place for future certificate renewal.
 
-## 8. GoDaddy DNS
+## 8. Point DNS to the ALB
 
-Point the existing `www` CNAME to the ALB:
+Configure the existing `www` CNAME to target the ALB:
 
 ```text
 Type:  CNAME
@@ -283,25 +296,25 @@ Route 53 is not required for this `www` setup.
 
 ## 9. Final Verification
 
-Frontend:
+Check the frontend:
 
 ```bash
 curl -I https://www.smokebyte.space
 ```
 
-Expected:
+Expected response:
 
 ```text
 HTTP/2 200
 ```
 
-API:
+Check the API:
 
 ```bash
 curl -i https://www.smokebyte.space/api/topics
 ```
 
-Check Kubernetes:
+Check the cluster state:
 
 ```bash
 kubectl get nodes
@@ -322,19 +335,19 @@ nslookup www.smokebyte.space 8.8.8.8
 
 ## Cleanup
 
-Delete the Ingress first so the ALB Controller can remove the ALB:
+Delete the ingress first so the AWS Load Balancer Controller can clean up the ALB:
 
 ```bash
 kubectl delete ingress 3-tier-app-ingress -n 3-tier-app-eks
 ```
 
-Then delete the cluster:
+Then remove the EKS cluster:
 
 ```bash
 eksctl delete cluster --name 3-tier-cluster --region ap-south-1
 ```
 
-Delete ECR repositories when no longer required:
+Delete ECR repositories when they are no longer needed:
 
 ```bash
 aws ecr delete-repository --repository-name 3-tier-frontend --force --region ap-south-1
@@ -346,8 +359,8 @@ aws ecr delete-repository --repository-name 3-tier-backend --force --region ap-s
 ```text
 Docker Images       → Amazon ECR
 Kubernetes          → Amazon EKS
-Frontend            → React/Nginx
-Backend             → Flask/Gunicorn
+Frontend            → React + Nginx
+Backend             → Flask + Gunicorn
 Database            → PostgreSQL
 Ingress             → AWS ALB
 TLS                 → AWS ACM
@@ -356,3 +369,18 @@ Public URL          → https://www.smokebyte.space
 ```
 
 This project demonstrates an end-to-end containerized 3-tier deployment using Docker, Kubernetes, EKS, ECR, ALB Ingress, IAM integration, DNS, and HTTPS.
+
+## Project Goals
+
+- Build and deploy a cloud-native application on Amazon EKS
+- Containerize the frontend and backend services
+- Manage secrets securely with Kubernetes
+- Route traffic through a managed AWS load balancer
+- Secure application access with ACM-managed TLS certificates
+- Showcase a realistic production deployment flow
+
+## Notes
+
+- Replace placeholder values such as `<AWS_ACCOUNT_ID>`, `<VPC_ID>`, `<DB_USERNAME>`, and `<CERTIFICATE_ARN>` with your real environment values.
+- Keep all credentials and secret material out of Git repositories.
+- This setup is intended for learning, demonstration, and deployment practice in a controlled AWS environment.
