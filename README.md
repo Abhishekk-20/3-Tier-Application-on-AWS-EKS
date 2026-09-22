@@ -6,6 +6,8 @@ Production-style 3-tier application deployed on **Amazon EKS** with a **React/Ng
 
 ## Architecture
 
+The application follows a standard public-facing 3-tier flow: traffic enters through a public DNS name, is terminated at the AWS Application Load Balancer, routed by the EKS ingress, and then served by the frontend and backend services. The backend communicates with PostgreSQL for persistent data storage.
+
 ```text
 User
  |
@@ -13,23 +15,25 @@ User
 https://www.smokebyte.space
  |
  v
-GoDaddy DNS (CNAME)
+GoDaddy DNS
  |
  v
-AWS ALB :80/:443
- |  HTTP -> HTTPS
- |  ACM TLS Certificate
+AWS ALB (80/443)
+ |  HTTPS termination via ACM
+ |  HTTP redirect to HTTPS
  v
 EKS Ingress
- |------------------|
- v                  v
-Frontend            Backend
-React/Nginx         Flask/Gunicorn
-:80                 :8000
-                      |
-                      v
-                 PostgreSQL
-                    :5432
+ |
+ +-----------------------+
+ |                       |
+ v                       v
+Frontend Service        Backend Service
+React + Nginx           Flask + Gunicorn
+:80                     :8000
+                           |
+                           v
+                     PostgreSQL
+                       :5432
 ```
 
 ## Tech Stack
