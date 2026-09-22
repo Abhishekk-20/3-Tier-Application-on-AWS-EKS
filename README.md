@@ -17,6 +17,10 @@ This project demonstrates a full end-to-end deployment of a containerized applic
 - DNS: GoDaddy
 - Image Registry: Amazon ECR
 
+## Application Screenshot
+
+![DevOps Learning Platform homepage](docs/images/devops-homepage.svg)
+
 ## Architecture
 
 The application follows a standard public-facing 3-tier flow. Users access the site through a public DNS name, traffic is received by the AWS Application Load Balancer, routed through the EKS ingress, and then served by the frontend and backend services. The backend connects to PostgreSQL for persistent data storage.
