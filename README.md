@@ -327,6 +327,10 @@ kubectl get svc -n 3-tier-app-eks
 kubectl get ingress -n 3-tier-app-eks
 ```
 
+The application should look like this when the deployment is working correctly:
+
+![Final verification screenshot](docs/images/devops-homepage.svg)
+
 ## Troubleshooting
 
 ```bash
