@@ -17,10 +17,6 @@ This project demonstrates a full end-to-end deployment of a containerized applic
 - DNS: GoDaddy
 - Image Registry: Amazon ECR
 
-## Application Screenshot
-
-![DevOps Learning Platform homepage](docs/images/devops-homepage.svg)
-
 ## Architecture
 
 The application follows a standard public-facing 3-tier flow. Users access the site through a public DNS name, traffic is received by the AWS Application Load Balancer, routed through the EKS ingress, and then served by the frontend and backend services. The backend connects to PostgreSQL for persistent data storage.
@@ -329,7 +325,8 @@ kubectl get ingress -n 3-tier-app-eks
 
 The application should look like this when the deployment is working correctly:
 
-![Final verification screenshot](docs/images/devops-homepage.svg)
+<img width="1358" height="724" alt="image" src="https://github.com/user-attachments/assets/e3cd3fdb-eed1-4118-adc0-8bd0b3806d5d" />
+
 
 ## Troubleshooting
 
