@@ -325,7 +325,8 @@ kubectl get ingress -n 3-tier-app-eks
 
 The application should look like this when the deployment is working correctly:
 
-<img width="1358" height="724" alt="image" src="https://github.com/user-attachments/assets/e3cd3fdb-eed1-4118-adc0-8bd0b3806d5d" />
+<img width="1358" height="724" alt="image" src="https://github.com/user-attachments/assets/b9e58811-73d3-4cc6-88d4-751d9ab6cdb9" />
+
 
 
 ## Troubleshooting
